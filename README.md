@@ -2,249 +2,166 @@
 
 A real-time chat application backend built with NestJS, PostgreSQL, TypeORM, and WebSocket.
 
-## Authentication System Documentation
+## Features
 
-The authentication system provides secure user registration, login, and logout functionality using JWT (JSON Web Tokens).
-
-### Features
+### 1. Authentication System
 
 - User registration with email validation
 - Secure password hashing using bcrypt
 - JWT-based authentication
 - User status tracking (online/offline)
 - Protected routes using Guards
-- Comprehensive error handling
 
-### API Endpoints
+### 2. Friend Management System
 
-#### 1. Register User
+The friend management system provides comprehensive functionality for managing user relationships, including friend requests, blocking, and friend suggestions.
 
-```http
-POST /auth/register
-```
-
-**Request Body:**
-
-```json
-{
-  "username": "string",
-  "email": "string",
-  "password": "string"
-}
-```
-
-**Response (201):**
-
-```json
-{
-  "access_token": "string",
-  "user": {
-    "user_id": "number",
-    "username": "string",
-    "email": "string"
-  }
-}
-```
-
-**Error Responses:**
-
-- `409` - Username or email already exists
-- `400` - Invalid input data
-
-#### 2. Login
+#### Friend Request Endpoints
 
 ```http
-POST /auth/login
-```
-
-**Request Body:**
-
-```json
+# Send Friend Request
+POST /friendships/request
+Authorization: Bearer <jwt_token>
 {
-  "username": "string",
-  "password": "string"
+  "friendId": "number"
 }
-```
 
-**Response (200):**
+# Accept Friend Request
+POST /friendships/accept/:friendId
+Authorization: Bearer <jwt_token>
 
-```json
-{
-  "access_token": "string",
-  "user": {
-    "user_id": "number",
-    "username": "string",
-    "email": "string"
-  }
-}
-```
+# Search Friends
+GET /friendships/search?search=<query>&page=<number>&limit=<number>
+Authorization: Bearer <jwt_token>
 
-**Error Responses:**
+# Block User
+POST /friendships/block/:friendId
+Authorization: Bearer <jwt_token>
 
-- `401` - Invalid credentials
+# Unblock User
+DELETE /friendships/unblock/:friendId
+Authorization: Bearer <jwt_token>
 
-#### 3. Logout
+# Get Friend Suggestions
+GET /friendships/suggestions?limit=<number>
+Authorization: Bearer <jwt_token>
 
-```http
-POST /auth/logout
-```
-
-**Headers:**
-
-```
+# Search Users (for adding friends)
+GET /users/search?search=<query>&page=<number>&limit=<number>
 Authorization: Bearer <jwt_token>
 ```
 
-**Response (200):**
+#### Friend Request Flow
 
+1. **Sending Friend Request:**
+
+   - Validates target user exists
+   - Checks for existing friendship/block
+   - Creates pending friendship record
+   - Response includes friendship status
+
+2. **Accepting Friend Request:**
+
+   - Validates request exists
+   - Updates status to 'accepted'
+   - Returns updated friendship status
+
+3. **Blocking Users:**
+
+   - Creates or updates friendship to blocked status
+   - Prevents blocked users from sending requests
+   - Optionally removes existing friendship
+
+4. **Friend Search:**
+
+   - Pagination support
+   - Search by username
+   - Returns only accepted friendships
+   - Includes user details
+
+5. **Friend Suggestions:**
+   - Based on mutual connections
+   - Excludes existing friends and blocked users
+   - Customizable limit
+   - Returns relevant user details
+
+#### Response Examples
+
+1. **Friend Request Response:**
+   json
+   {
+   "user_id": 1,
+   "friend_id": 2,
+   "status": "pending",
+   "requested_at": "2024-01-07T12:00:00Z"
+   }
+
+````
+
+2. **Friend Search Response:**
 ```json
 {
-  "message": "Successfully logged out"
+  "data": [
+    {
+      "user_id": 2,
+      "username": "jane_doe",
+      "email": "jane@example.com",
+      "profile_picture": "url",
+      "status": "online"
+    }
+  ],
+  "meta": {
+    "total": 10,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+  }
 }
+````
+
+3. **Friend Suggestions Response:**
+
+```json
+[
+  {
+    "user_id": 3,
+    "username": "john_smith",
+    "email": "john@example.com",
+    "profile_picture": "url",
+    "status": "offline"
+  }
+]
 ```
 
-**Error Responses:**
+#### Error Handling
 
-- `401` - Unauthorized
-- `404` - User not found
+The system handles various error cases:
 
-### Authentication Flow
+- `400 Bad Request`: Invalid input or duplicate request
+- `401 Unauthorized`: Invalid or missing token
+- `403 Forbidden`: Blocked user or insufficient permissions
+- `404 Not Found`: User or friendship not found
 
-1. **Registration:**
+### Database Schema
 
-   - Validate input data
-   - Check for existing username/email
-   - Hash password
-   - Create user
-   - Generate JWT
-   - Return token and user data
-
-2. **Login:**
-
-   - Validate credentials
-   - Update user status to 'online'
-   - Generate JWT
-   - Return token and user data
-
-3. **Logout:**
-   - Verify JWT token
-   - Update user status to 'offline'
-   - Return success message
-
-### Security Features
-
-1. **Password Security:**
-
-   - Passwords are hashed using bcrypt
-   - Original passwords are never stored
-   - Password hash is excluded from responses
-
-2. **JWT Implementation:**
-
-   - Tokens include user ID and username
-   - Configurable expiration time
-   - Protected routes using JwtAuthGuard
-
-3. **Data Validation:**
-   - Input validation using class-validator
-   - Email format validation
-   - Minimum password length requirement
-   - Username uniqueness check
-
-### Database Schema (User Entity)
+#### Friendship Entity
 
 ```typescript
-@Entity('users')
-export class User {
-  @PrimaryGeneratedColumn('increment')
+@Entity('friendships')
+export class Friendship {
+  @PrimaryColumn()
   user_id: number;
 
-  @Column({ unique: true })
-  username: string;
+  @PrimaryColumn()
+  friend_id: number;
 
-  @Column({ unique: true })
-  email: string;
-
-  @Column()
-  password_hash: string;
-
-  @Column({ nullable: true })
-  profile_picture: string;
-
-  @Column({ default: 'offline' })
-  status: string;
+  @Column({ type: 'varchar', length: 20 })
+  status: 'pending' | 'accepted' | 'blocked';
 
   @CreateDateColumn()
-  created_at: Date;
+  requested_at: Date;
 }
 ```
-
-### Environment Configuration
-
-Required environment variables:
-
-```env
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
-DB_NAME=your_database
-
-# JWT Configuration
-JWT_SECRET=your-secret-key
-JWT_EXPIRATION=1d
-
-# Environment
-NODE_ENV=development
-```
-
-### Testing
-
-The authentication system includes comprehensive e2e tests covering:
-
-1. Registration:
-
-   - Successful registration
-   - Duplicate username handling
-   - Invalid email validation
-
-2. Login:
-
-   - Successful login
-   - Invalid credentials handling
-   - Non-existent user handling
-
-3. Logout:
-   - Successful logout
-   - Unauthorized access handling
-   - Invalid token handling
-
-Run tests using:
-
-```bash
-npm run test:e2e
-```
-
-### Error Handling
-
-The system implements the following error types:
-
-- `UnauthorizedException` - Invalid credentials or token
-- `ConflictException` - Duplicate username/email
-- `NotFoundException` - User not found
-- `BadRequestException` - Invalid input data
-
-### Future Enhancements
-
-Potential improvements to consider:
-
-1. Refresh token implementation
-2. Password reset functionality
-3. Email verification
-4. OAuth integration
-5. Rate limiting
-6. Session management
 
 ## Getting Started
 
@@ -253,17 +170,42 @@ Potential improvements to consider:
    ```bash
    npm install
    ```
-3. Set up environment variables in `.env`
+3. Set up environment variables in `.env`:
+   ```env
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_USERNAME=postgres
+   DB_PASSWORD=your_password
+   DB_NAME=your_database
+   JWT_SECRET=your-secret-key
+   JWT_EXPIRATION=1d
+   ```
 4. Start PostgreSQL database
 5. Run migrations:
    ```bash
-   npm run typeorm:run-migrations
+   npm run migration:run
    ```
-6. Start the application:
+6. Start the server:
    ```bash
    npm run start:dev
    ```
 
+## Testing
+
+Run the test suite:
+
+```bash
+npm run test:e2e
+```
+
 ## Contributing
 
-Please read CONTRIBUTING.md for details on our code of conduct and the process for submitting pull requests.
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+```
+
+```
