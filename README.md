@@ -143,25 +143,138 @@ The system handles various error cases:
 - `404 Not Found`: User or friendship not found
 
 ### Database Schema
+![img](./MainLayout.svg)
 
-#### Friendship Entity
 
-```typescript
-@Entity('friendships')
-export class Friendship {
-  @PrimaryColumn()
-  user_id: number;
 
-  @PrimaryColumn()
-  friend_id: number;
+### Table public.conversation_members 
+|Idx |Name |Data Type |
+|---|---|---|
+| * &#128273;  &#11016; | conversation\_id| integer  |
+| * &#128273;  &#11016; | user\_id| integer  |
+| * | joined\_at| timestamp  DEFAULT now() |
 
-  @Column({ type: 'varchar', length: 20 })
-  status: 'pending' | 'accepted' | 'blocked';
 
-  @CreateDateColumn()
-  requested_at: Date;
-}
-```
+##### Indexes 
+|Type |Name |On |
+|---|---|---|
+| &#128273;  | PK\_5fa9076068b6f2a26fb793d2439 | ON conversation\_id, user\_id|
+
+##### Foreign Keys
+|Type |Name |On |
+|---|---|---|
+|  | FK_36340a1704b039608e34244511f | ( conversation\_id ) ref [public.conversations](#conversations) (conversation\_id) |
+|  | FK_a46c76be8f62c4b00a835cdc370 | ( user\_id ) ref [public.users](#users) (user\_id) |
+
+
+
+
+### Table public.conversations 
+|Idx |Name |Data Type |
+|---|---|---|
+| * &#128273;  &#11019; | conversation\_id| serial  |
+| * | is\_group| boolean  DEFAULT false |
+|  | name| varchar(100)  |
+| * | created\_at| timestamp  DEFAULT now() |
+
+
+##### Indexes 
+|Type |Name |On |
+|---|---|---|
+| &#128273;  | PK\_c00ef2d6a90778048c6b8150819 | ON conversation\_id|
+
+
+
+### Table public.friendships 
+|Idx |Name |Data Type |
+|---|---|---|
+| * &#128273;  &#11016; | user\_id| integer  |
+| * &#128273;  &#11016; | friend\_id| integer  |
+| * | status| varchar(20)  |
+| * | requested\_at| timestamp  DEFAULT now() |
+
+
+##### Indexes 
+|Type |Name |On |
+|---|---|---|
+| &#128273;  | PK\_a8e4ede8e2df44f3f21f557d379 | ON user\_id, friend\_id|
+
+##### Foreign Keys
+|Type |Name |On |
+|---|---|---|
+|  | FK_c73eec6c7e7d5d1f2b3ce8b9002 | ( user\_id ) ref [public.users](#users) (user\_id) |
+|  | FK_972c6bdd4bc18dda48b8aa4714c | ( friend\_id ) ref [public.users](#users) (user\_id) |
+
+
+
+
+### Table public.messages 
+|Idx |Name |Data Type |
+|---|---|---|
+| * &#128273;  | message\_id| serial  |
+| * | content| text  |
+| * | sent\_at| timestamp  DEFAULT now() |
+| * | is\_read| boolean  DEFAULT false |
+| &#11016; | conversation\_id| integer  |
+| &#11016; | sender\_id| integer  |
+
+
+##### Indexes 
+|Type |Name |On |
+|---|---|---|
+| &#128273;  | PK\_6187089f850b8deeca0232cfeba | ON message\_id|
+
+##### Foreign Keys
+|Type |Name |On |
+|---|---|---|
+|  | FK_3bc55a7c3f9ed54b520bb5cfe23 | ( conversation\_id ) ref [public.conversations](#conversations) (conversation\_id) |
+|  | FK_22133395bd13b970ccd0c34ab22 | ( sender\_id ) ref [public.users](#users) (user\_id) |
+
+
+
+
+### Table public.notifications 
+|Idx |Name |Data Type |
+|---|---|---|
+| * &#128273;  | notification\_id| serial  |
+| * | type| varchar(50)  |
+| * | content| varchar(255)  |
+| * | created\_at| timestamp  DEFAULT now() |
+| * | is\_read| boolean  DEFAULT false |
+| &#11016; | user\_id| integer  |
+
+
+##### Indexes 
+|Type |Name |On |
+|---|---|---|
+| &#128273;  | PK\_eaedfe19f0f765d26afafa85956 | ON notification\_id|
+
+##### Foreign Keys
+|Type |Name |On |
+|---|---|---|
+|  | FK_9a8a82462cab47c73d25f49261f | ( user\_id ) ref [public.users](#users) (user\_id) |
+
+
+
+
+### Table public.users 
+|Idx |Name |Data Type |
+|---|---|---|
+| * &#128273;  &#11019; | user\_id| serial  |
+| * &#128269; | username| varchar(50)  |
+| * &#128269; | email| varchar(100)  |
+| * | password\_hash| varchar(255)  |
+|  | profile\_picture| varchar(255)  |
+| * | status| varchar  DEFAULT 'offline'::character varying |
+| * | created\_at| timestamp  DEFAULT now() |
+
+
+##### Indexes 
+|Type |Name |On |
+|---|---|---|
+| &#128273;  | PK\_96aac72f1574b88752e9fb00089 | ON user\_id|
+| &#128269;  | UQ\_fe0bb3f6520ee0469504521e710 | ON username|
+| &#128269;  | UQ\_97672ac88f789774dd47f7c8be3 | ON email|
 
 ## Getting Started
 
