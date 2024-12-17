@@ -10,6 +10,7 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FriendshipsService } from './friendships.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -41,7 +42,7 @@ export class FriendshipsController {
   @HttpCode(HttpStatus.OK)
   async acceptFriendRequest(
     @Request() req,
-    @Param('friendId') friendId: number,
+    @Param('friendId', ParseUUIDPipe) friendId: string,
   ) {
     return this.friendshipsService.acceptFriendRequest(
       req.user.user_id,
@@ -51,13 +52,19 @@ export class FriendshipsController {
 
   @Post('block/:friendId')
   @HttpCode(HttpStatus.OK)
-  async blockUser(@Request() req, @Param('friendId') friendId: number) {
+  async blockUser(
+    @Request() req,
+    @Param('friendId', ParseUUIDPipe) friendId: string,
+  ) {
     return this.friendshipsService.blockUser(req.user.user_id, friendId);
   }
 
   @Delete('unblock/:friendId')
   @HttpCode(HttpStatus.OK)
-  async unblockUser(@Request() req, @Param('friendId') friendId: number) {
+  async unblockUser(
+    @Request() req,
+    @Param('friendId', ParseUUIDPipe) friendId: string,
+  ) {
     return this.friendshipsService.unblockUser(req.user.user_id, friendId);
   }
 

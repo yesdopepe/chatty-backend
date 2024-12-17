@@ -10,11 +10,11 @@ import { Conversation } from './conversation.entity';
 
 @Entity('conversation_members')
 export class ConversationMember {
-  @PrimaryColumn()
-  conversation_id: number;
+  @PrimaryColumn('uuid')
+  conversation_id: string;
 
-  @PrimaryColumn()
-  user_id: number;
+  @PrimaryColumn('uuid')
+  user_id: string;
 
   @ManyToOne(() => Conversation, (conversation) => conversation.members)
   @JoinColumn({ name: 'conversation_id' })

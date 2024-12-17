@@ -13,4 +13,5 @@ export const databaseConfig: TypeOrmModuleOptions = {
   entities: ['dist/**/*.entity{.ts,.js}'],
   synchronize: process.env.NODE_ENV !== 'production',
   logging: process.env.NODE_ENV !== 'production',
-}; 
+  uuidExtension: 'uuid-ossp',
+};

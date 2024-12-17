@@ -1,12 +1,19 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('notifications')
 export class Notification {
-  @PrimaryGeneratedColumn('increment')
-  notification_id: number;
+  @PrimaryGeneratedColumn('uuid')
+  notification_id: string;
 
-  @ManyToOne(() => User, user => user.notifications)
+  @ManyToOne(() => User, (user) => user.notifications)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
@@ -21,4 +28,4 @@ export class Notification {
 
   @Column({ type: 'boolean', default: false })
   is_read: boolean;
-} 
+}

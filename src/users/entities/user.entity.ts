@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  CreateDateColumn,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { Friendship } from '../../friendships/entities/friendship.entity';
 import { Message } from '../../messages/entities/message.entity';
@@ -7,8 +13,8 @@ import { Notification } from '../../notifications/entities/notification.entity';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn('increment')
-  user_id: number;
+  @PrimaryGeneratedColumn('uuid')
+  user_id: string;
 
   @Column({ type: 'varchar', length: 50, unique: true })
   username: string;
@@ -29,18 +35,18 @@ export class User {
   @CreateDateColumn()
   created_at: Date;
 
-  @OneToMany(() => Friendship, friendship => friendship.user)
+  @OneToMany(() => Friendship, (friendship) => friendship.user)
   friendships: Friendship[];
 
-  @OneToMany(() => Friendship, friendship => friendship.friend)
+  @OneToMany(() => Friendship, (friendship) => friendship.friend)
   friendOf: Friendship[];
 
-  @OneToMany(() => Message, message => message.sender)
+  @OneToMany(() => Message, (message) => message.sender)
   messages: Message[];
 
-  @OneToMany(() => ConversationMember, member => member.user)
+  @OneToMany(() => ConversationMember, (member) => member.user)
   conversations: ConversationMember[];
 
-  @OneToMany(() => Notification, notification => notification.user)
+  @OneToMany(() => Notification, (notification) => notification.user)
   notifications: Notification[];
-} 
+}

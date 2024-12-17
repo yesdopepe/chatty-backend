@@ -13,9 +13,9 @@ describe('Friendships (e2e)', () => {
   let jwtToken1: string; // for first test user
   let jwtToken2: string; // for second test user
   let jwtToken3: string; // for third test user
-  let user1Id: number;
-  let user2Id: number;
-  let user3Id: number;
+  let user1Id: string;
+  let user2Id: string;
+  let user3Id: string;
 
   const testUser1 = {
     username: 'testuser1',

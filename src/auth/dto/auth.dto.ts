@@ -29,7 +29,7 @@ export class RegisterDto {
 export class AuthResponse {
   access_token: string;
   user: {
-    user_id: number;
+    user_id: string;
     username: string;
     email: string;
   };

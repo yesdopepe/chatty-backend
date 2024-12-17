@@ -18,7 +18,7 @@ export class FriendshipsService {
     private userRepository: Repository<User>,
   ) {}
 
-  async searchFriends(userId: number, searchDto: SearchFriendsDto) {
+  async searchFriends(userId: string, searchDto: SearchFriendsDto) {
     const { search, page = 1, limit = 10 } = searchDto;
     const skip = (page - 1) * limit;
 
@@ -50,7 +50,7 @@ export class FriendshipsService {
     };
   }
 
-  async sendFriendRequest(userId: number, friendId: number) {
+  async sendFriendRequest(userId: string, friendId: string) {
     if (userId === friendId) {
       throw new BadRequestException('Cannot send friend request to yourself');
     }
@@ -93,7 +93,7 @@ export class FriendshipsService {
     return this.friendshipRepository.save(friendship);
   }
 
-  async acceptFriendRequest(userId: number, friendId: number) {
+  async acceptFriendRequest(userId: string, friendId: string) {
     const friendship = await this.friendshipRepository.findOne({
       where: { user_id: friendId, friend_id: userId, status: 'pending' },
     });
@@ -106,7 +106,7 @@ export class FriendshipsService {
     return this.friendshipRepository.save(friendship);
   }
 
-  async blockUser(userId: number, friendId: number) {
+  async blockUser(userId: string, friendId: string) {
     let friendship = await this.friendshipRepository.findOne({
       where: [
         { user_id: userId, friend_id: friendId },
@@ -131,7 +131,7 @@ export class FriendshipsService {
     return this.friendshipRepository.save(friendship);
   }
 
-  async unblockUser(userId: number, friendId: number) {
+  async unblockUser(userId: string, friendId: string) {
     const friendship = await this.friendshipRepository.findOne({
       where: { user_id: userId, friend_id: friendId, status: 'blocked' },
     });
@@ -144,7 +144,7 @@ export class FriendshipsService {
     return { message: 'User unblocked successfully' };
   }
 
-  async getFriendSuggestions(userId: number, limit: number = 5) {
+  async getFriendSuggestions(userId: string, limit: number = 5) {
     // First, get all accepted friendships for the user
     const userFriends = await this.friendshipRepository.find({
       where: [

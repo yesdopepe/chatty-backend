@@ -1,6 +1,6 @@
-import { IsNumber } from 'class-validator';
+import { IsUUID } from 'class-validator';
 
 export class FriendRequestDto {
-  @IsNumber()
-  friendId: number;
+  @IsUUID()
+  friendId: string;
 }

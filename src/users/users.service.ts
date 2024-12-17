@@ -11,7 +11,7 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async searchUsers(currentUserId: number, searchDto: SearchUsersDto) {
+  async searchUsers(currentUserId: string, searchDto: SearchUsersDto) {
     const { search, page = 1, limit = 10 } = searchDto;
     const skip = (page - 1) * limit;
 

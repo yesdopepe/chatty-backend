@@ -96,7 +96,7 @@ export class AuthService {
     };
   }
 
-  async logout(userId: number): Promise<void> {
+  async logout(userId: string): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { user_id: userId },
     });

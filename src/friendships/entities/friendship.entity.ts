@@ -10,11 +10,11 @@ import { User } from '../../users/entities/user.entity';
 
 @Entity('friendships')
 export class Friendship {
-  @PrimaryColumn()
-  user_id: number;
+  @PrimaryColumn('uuid')
+  user_id: string;
 
-  @PrimaryColumn()
-  friend_id: number;
+  @PrimaryColumn('uuid')
+  friend_id: string;
 
   @ManyToOne(() => User, (user) => user.friendships)
   @JoinColumn({ name: 'user_id' })

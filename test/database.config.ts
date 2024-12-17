@@ -24,4 +24,5 @@ export const testDatabaseConfig: TypeOrmModuleOptions = {
   synchronize: true,
   dropSchema: true,
   logging: false,
+  uuidExtension: 'uuid-ossp',
 };
