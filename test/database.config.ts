@@ -5,13 +5,16 @@ import { Conversation } from '../src/conversations/entities/conversation.entity'
 import { ConversationMember } from '../src/conversations/entities/conversation-member.entity';
 import { Message } from '../src/messages/entities/message.entity';
 import { Notification } from '../src/notifications/entities/notification.entity';
+import { config } from 'dotenv';
+
+config();
 
 export const testDatabaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
   host: 'localhost',
   port: 5432,
-  username: 'postgres',
-  password: 'Yamen.186',
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
   database: 'chatty_test',
   entities: [
     User,

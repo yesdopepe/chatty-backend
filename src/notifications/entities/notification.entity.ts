@@ -3,29 +3,48 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+
+export type NotificationType =
+  | 'message'
+  | 'friend_request'
+  | 'group_invite'
+  | 'system';
 
 @Entity('notifications')
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
   notification_id: string;
 
-  @ManyToOne(() => User, (user) => user.notifications)
+  @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ type: 'varchar', length: 50 })
-  type: 'new_message' | 'friend_request' | string;
+  @Column({
+    type: 'enum',
+    enum: ['message', 'friend_request', 'group_invite', 'system'],
+  })
+  type: NotificationType;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column('text')
   content: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, any>;
+
+  @Column({ default: false })
+  is_read: boolean;
 
   @CreateDateColumn()
   created_at: Date;
 
-  @Column({ type: 'boolean', default: false })
-  is_read: boolean;
+  @UpdateDateColumn()
+  updated_at: Date;
+
+  @Column({ nullable: true })
+  deleted_at: Date;
 }

@@ -1,323 +1,547 @@
-# Chat Application Backend
+# Chatty Backend
 
-A real-time chat application backend built with NestJS, PostgreSQL, TypeORM, and WebSocket.
+A real-time chat application backend built with NestJS, TypeORM, PostgreSQL, and WebSockets.
+
+![Database Schema](MainLayout.svg)
 
 ## Features
 
-### 1. Authentication System
-
-- User registration with email validation
-- Secure password hashing using bcrypt
-- JWT-based authentication
-- User status tracking (online/offline)
-- Protected routes using Guards
-
-### 2. Friend Management System
-
-The friend management system provides comprehensive functionality for managing user relationships, including friend requests, blocking, and friend suggestions.
-
-#### Friend Request Endpoints
-
-```http
-# Send Friend Request
-POST /friendships/request
-Authorization: Bearer <jwt_token>
-{
-  "friendId": "number"
-}
-
-# Accept Friend Request
-POST /friendships/accept/:friendId
-Authorization: Bearer <jwt_token>
-
-# Search Friends
-GET /friendships/search?search=<query>&page=<number>&limit=<number>
-Authorization: Bearer <jwt_token>
-
-# Block User
-POST /friendships/block/:friendId
-Authorization: Bearer <jwt_token>
-
-# Unblock User
-DELETE /friendships/unblock/:friendId
-Authorization: Bearer <jwt_token>
-
-# Get Friend Suggestions
-GET /friendships/suggestions?limit=<number>
-Authorization: Bearer <jwt_token>
-
-# Search Users (for adding friends)
-GET /users/search?search=<query>&page=<number>&limit=<number>
-Authorization: Bearer <jwt_token>
-```
-
-#### Friend Request Flow
-
-1. **Sending Friend Request:**
-
-   - Validates target user exists
-   - Checks for existing friendship/block
-   - Creates pending friendship record
-   - Response includes friendship status
-
-2. **Accepting Friend Request:**
-
-   - Validates request exists
-   - Updates status to 'accepted'
-   - Returns updated friendship status
-
-3. **Blocking Users:**
-
-   - Creates or updates friendship to blocked status
-   - Prevents blocked users from sending requests
-   - Optionally removes existing friendship
-
-4. **Friend Search:**
-
-   - Pagination support
-   - Search by username
-   - Returns only accepted friendships
-   - Includes user details
-
-5. **Friend Suggestions:**
-   - Based on mutual connections
-   - Excludes existing friends and blocked users
-   - Customizable limit
-   - Returns relevant user details
-
-#### Response Examples
-
-1. **Friend Request Response:**
-   json
-   {
-   "user_id": 1,
-   "friend_id": 2,
-   "status": "pending",
-   "requested_at": "2024-01-07T12:00:00Z"
-   }
-
-````
-
-2. **Friend Search Response:**
-```json
-{
-  "data": [
-    {
-      "user_id": 2,
-      "username": "jane_doe",
-      "email": "jane@example.com",
-      "profile_picture": "url",
-      "status": "online"
-    }
-  ],
-  "meta": {
-    "total": 10,
-    "page": 1,
-    "limit": 10,
-    "totalPages": 1
-  }
-}
-````
-
-3. **Friend Suggestions Response:**
-
-```json
-[
-  {
-    "user_id": 3,
-    "username": "john_smith",
-    "email": "john@example.com",
-    "profile_picture": "url",
-    "status": "offline"
-  }
-]
-```
-
-#### Error Handling
-
-The system handles various error cases:
-
-- `400 Bad Request`: Invalid input or duplicate request
-- `401 Unauthorized`: Invalid or missing token
-- `403 Forbidden`: Blocked user or insufficient permissions
-- `404 Not Found`: User or friendship not found
-
-### Database Schema
-![img](./MainLayout.svg)
-
-
-
-### Table public.conversation_members 
-|Idx |Name |Data Type |
-|---|---|---|
-| * &#128273;  &#11016; | conversation\_id| integer  |
-| * &#128273;  &#11016; | user\_id| integer  |
-| * | joined\_at| timestamp  DEFAULT now() |
-
-
-##### Indexes 
-|Type |Name |On |
-|---|---|---|
-| &#128273;  | PK\_5fa9076068b6f2a26fb793d2439 | ON conversation\_id, user\_id|
-
-##### Foreign Keys
-|Type |Name |On |
-|---|---|---|
-|  | FK_36340a1704b039608e34244511f | ( conversation\_id ) ref [public.conversations](#conversations) (conversation\_id) |
-|  | FK_a46c76be8f62c4b00a835cdc370 | ( user\_id ) ref [public.users](#users) (user\_id) |
-
-
-
-
-### Table public.conversations 
-|Idx |Name |Data Type |
-|---|---|---|
-| * &#128273;  &#11019; | conversation\_id| serial  |
-| * | is\_group| boolean  DEFAULT false |
-|  | name| varchar(100)  |
-| * | created\_at| timestamp  DEFAULT now() |
-
-
-##### Indexes 
-|Type |Name |On |
-|---|---|---|
-| &#128273;  | PK\_c00ef2d6a90778048c6b8150819 | ON conversation\_id|
-
-
-
-### Table public.friendships 
-|Idx |Name |Data Type |
-|---|---|---|
-| * &#128273;  &#11016; | user\_id| integer  |
-| * &#128273;  &#11016; | friend\_id| integer  |
-| * | status| varchar(20)  |
-| * | requested\_at| timestamp  DEFAULT now() |
-
-
-##### Indexes 
-|Type |Name |On |
-|---|---|---|
-| &#128273;  | PK\_a8e4ede8e2df44f3f21f557d379 | ON user\_id, friend\_id|
-
-##### Foreign Keys
-|Type |Name |On |
-|---|---|---|
-|  | FK_c73eec6c7e7d5d1f2b3ce8b9002 | ( user\_id ) ref [public.users](#users) (user\_id) |
-|  | FK_972c6bdd4bc18dda48b8aa4714c | ( friend\_id ) ref [public.users](#users) (user\_id) |
-
-
-
-
-### Table public.messages 
-|Idx |Name |Data Type |
-|---|---|---|
-| * &#128273;  | message\_id| serial  |
-| * | content| text  |
-| * | sent\_at| timestamp  DEFAULT now() |
-| * | is\_read| boolean  DEFAULT false |
-| &#11016; | conversation\_id| integer  |
-| &#11016; | sender\_id| integer  |
-
-
-##### Indexes 
-|Type |Name |On |
-|---|---|---|
-| &#128273;  | PK\_6187089f850b8deeca0232cfeba | ON message\_id|
-
-##### Foreign Keys
-|Type |Name |On |
-|---|---|---|
-|  | FK_3bc55a7c3f9ed54b520bb5cfe23 | ( conversation\_id ) ref [public.conversations](#conversations) (conversation\_id) |
-|  | FK_22133395bd13b970ccd0c34ab22 | ( sender\_id ) ref [public.users](#users) (user\_id) |
-
-
-
-
-### Table public.notifications 
-|Idx |Name |Data Type |
-|---|---|---|
-| * &#128273;  | notification\_id| serial  |
-| * | type| varchar(50)  |
-| * | content| varchar(255)  |
-| * | created\_at| timestamp  DEFAULT now() |
-| * | is\_read| boolean  DEFAULT false |
-| &#11016; | user\_id| integer  |
-
-
-##### Indexes 
-|Type |Name |On |
-|---|---|---|
-| &#128273;  | PK\_eaedfe19f0f765d26afafa85956 | ON notification\_id|
-
-##### Foreign Keys
-|Type |Name |On |
-|---|---|---|
-|  | FK_9a8a82462cab47c73d25f49261f | ( user\_id ) ref [public.users](#users) (user\_id) |
-
-
-
-
-### Table public.users 
-|Idx |Name |Data Type |
-|---|---|---|
-| * &#128273;  &#11019; | user\_id| serial  |
-| * &#128269; | username| varchar(50)  |
-| * &#128269; | email| varchar(100)  |
-| * | password\_hash| varchar(255)  |
-|  | profile\_picture| varchar(255)  |
-| * | status| varchar  DEFAULT 'offline'::character varying |
-| * | created\_at| timestamp  DEFAULT now() |
-
-
-##### Indexes 
-|Type |Name |On |
-|---|---|---|
-| &#128273;  | PK\_96aac72f1574b88752e9fb00089 | ON user\_id|
-| &#128269;  | UQ\_fe0bb3f6520ee0469504521e710 | ON username|
-| &#128269;  | UQ\_97672ac88f789774dd47f7c8be3 | ON email|
-
-## Getting Started
-
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up environment variables in `.env`:
-   ```env
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_USERNAME=postgres
-   DB_PASSWORD=your_password
-   DB_NAME=your_database
-   JWT_SECRET=your-secret-key
-   JWT_EXPIRATION=1d
-   ```
-4. Start PostgreSQL database
-5. Run migrations:
-   ```bash
-   npm run migration:run
-   ```
-6. Start the server:
-   ```bash
-   npm run start:dev
-   ```
-
-## Testing
-
-Run the test suite:
+- 👥 User Authentication & Management
+- 💬 Real-time Messaging
+- 👫 Friendship System
+- 🔔 Real-time Notifications
+- 🟢 Online/Offline Status
+- ✍️ Typing Indicators
+- 📱 Multi-device Support
+- ✅ Read Receipts
+
+## Tech Stack
+
+- **Framework**: NestJS
+- **Database**: PostgreSQL
+- **ORM**: TypeORM
+- **WebSockets**: Socket.IO
+- **Authentication**: JWT
+- **API Documentation**: Swagger (coming soon)
+
+## Installation
 
 ```bash
-npm run test:e2e
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+
+# Run database migrations
+npm run typeorm migration:run
+
+# Start the development server
+npm run start:dev
 ```
+
+## API Documentation
+
+### Authentication Endpoints
+
+#### POST /auth/register
+
+Create a new user account.
+
+```json
+{
+  "username": "string",
+  "email": "string",
+  "password": "string"
+}
+```
+
+Response: JWT token and user information
+
+#### POST /auth/login
+
+Login with existing credentials.
+
+```json
+{
+  "username": "string",
+  "password": "string"
+}
+```
+
+Response: JWT token and user information
+
+#### POST /auth/logout
+
+Logout the current user.
+
+- Requires Authentication Header: `Authorization: Bearer <token>`
+- Updates user status to offline
+
+### Notification System
+
+The notification system uses WebSockets to deliver real-time notifications to connected clients. It supports different types of notifications and maintains a persistent connection for instant delivery.
+
+#### Notification Types
+
+- `message`: New message notifications
+- `friend_request`: Friend request notifications
+- `group_invite`: Group chat invitation notifications
+- `system`: System notifications
+
+#### REST Endpoints
+
+##### GET /notifications
+
+Get all notifications for the current user.
+
+- Requires Authentication
+- Returns notifications sorted by creation date (newest first)
+- Excludes deleted notifications
+
+##### GET /notifications/unread
+
+Get unread notifications for the current user.
+
+- Requires Authentication
+- Returns only unread notifications
+- Sorted by creation date (newest first)
+
+##### POST /notifications/:id/read
+
+Mark a notification as read.
+
+- Requires Authentication
+- Parameters:
+  - `id`: Notification ID
+- Returns the updated notification
+
+##### POST /notifications/read-all
+
+Mark all notifications as read for the current user.
+
+- Requires Authentication
+- Updates all unread notifications to read status
+
+##### DELETE /notifications/:id
+
+Soft delete a notification.
+
+- Requires Authentication
+- Parameters:
+  - `id`: Notification ID
+- Notification remains in database but is marked as deleted
+
+#### WebSocket Events
+
+##### Connection
+
+Connect to the notification WebSocket:
+
+```javascript
+const socket = io('http://your-server:3000/notifications', {
+  auth: {
+    token: 'your-jwt-token', // JWT token required for authentication
+  },
+});
+```
+
+##### Events
+
+###### Receiving Notifications
+
+```javascript
+socket.on('notification', (notification) => {
+  // notification object contains:
+  // {
+  //   notification_id: string
+  //   type: 'message' | 'friend_request' | 'group_invite' | 'system'
+  //   content: string
+  //   metadata: object
+  //   is_read: boolean
+  //   created_at: Date
+  //   title: string
+  // }
+});
+```
+
+###### Connection Status
+
+```javascript
+socket.on('notifications:connected', (status) => {
+  // status.status === 'connected'
+});
+
+socket.on('error', (error) => {
+  // Handle connection errors
+});
+```
+
+#### Notification Object Structure
+
+```typescript
+{
+  notification_id: string;     // Unique identifier
+  type: NotificationType;      // Type of notification
+  content: string;            // Notification message
+  metadata: {                 // Additional data based on type
+    conversation_id?: string;
+    sender_name?: string;
+    message_preview?: string;
+    sender_id?: string;
+    group_name?: string;
+  };
+  is_read: boolean;           // Read status
+  created_at: Date;           // Creation timestamp
+  updated_at: Date;           // Last update timestamp
+  deleted_at: Date | null;    // Soft delete timestamp
+}
+```
+
+#### Mobile Implementation Example
+
+1. **Connect to WebSocket**:
+
+```javascript
+class NotificationsService {
+  connect(authToken) {
+    this.socket = io('http://your-server:3000/notifications', {
+      auth: { token: authToken },
+      transports: ['websocket'],
+      reconnection: true,
+    });
+
+    this.socket.on('notification', this.handleNotification);
+  }
+}
+```
+
+2. **Handle Different Notification Types**:
+
+```javascript
+handleNotification(notification) {
+  switch (notification.type) {
+    case 'message':
+      // Navigate to conversation
+      navigation.navigate('Conversation', {
+        conversationId: notification.metadata.conversation_id
+      });
+      break;
+    case 'friend_request':
+      // Show friend request screen
+      navigation.navigate('FriendRequests');
+      break;
+    // ... handle other types
+  }
+}
+```
+
+3. **Manage Connection State**:
+
+```javascript
+useEffect(() => {
+  // Connect when app becomes active
+  const subscription = AppState.addEventListener('change', (nextAppState) => {
+    if (nextAppState === 'active') {
+      notificationsService.connect(authToken);
+    }
+  });
+
+  return () => subscription.remove();
+}, []);
+```
+
+### User Endpoints
+
+#### GET /users
+
+Get all users.
+
+- Requires Authentication
+- Returns list of users with basic information
+
+#### GET /users/:id
+
+Get user by ID.
+
+- Requires Authentication
+- Returns detailed user information
+
+### Conversation Endpoints
+
+#### POST /conversations
+
+Create a new conversation.
+
+```json
+{
+  "name": "string (optional)",
+  "is_group": "boolean (optional)",
+  "participant_ids": "string[]"
+}
+```
+
+- Requires Authentication
+- For non-group chats, exactly 2 participants required
+- For group chats, name is required
+- Returns the created conversation
+
+#### GET /conversations
+
+Get all conversations for the current user.
+
+- Requires Authentication
+- Returns list of conversations with latest messages
+- Includes participant information
+
+#### GET /conversations/:id
+
+Get a specific conversation.
+
+- Requires Authentication
+- Returns conversation details with messages
+- Must be a participant to access
+
+#### POST /conversations/:id/participants
+
+Add participants to a group conversation.
+
+```json
+{
+  "userIds": "string[]"
+}
+```
+
+- Requires Authentication
+- Only works for group conversations
+- Returns updated conversation
+
+#### POST /conversations/:id/participants/:userId/remove
+
+Remove a participant from a group conversation.
+
+- Requires Authentication
+- Only works for group conversations
+- Cannot remove last participant
+- Returns updated conversation
+
+### Message Endpoints
+
+#### POST /messages
+
+Send a new message.
+
+```json
+{
+  "content": "string",
+  "conversation_id": "string"
+}
+```
+
+- Requires Authentication
+- Must be a conversation participant
+- Returns created message
+- Triggers real-time notification
+
+#### GET /messages/conversation/:conversationId
+
+Get all messages in a conversation.
+
+- Requires Authentication
+- Must be a conversation participant
+- Returns messages in chronological order
+- Excludes deleted messages
+
+#### PUT /messages/:id
+
+Edit a message.
+
+```json
+{
+  "content": "string"
+}
+```
+
+- Requires Authentication
+- Only the sender can edit
+- Marks message as edited
+- Returns updated message
+
+#### PUT /messages/:id/status
+
+Update message status.
+
+```json
+{
+  "status": "'delivered' | 'read'"
+}
+```
+
+- Requires Authentication
+- Must be a conversation participant
+- Triggers real-time status update
+
+#### DELETE /messages/:id
+
+Delete a message (soft delete).
+
+- Requires Authentication
+- Only the sender can delete
+- Message remains in database but marked as deleted
+
+## WebSocket Events
+
+### Connection
+
+Connect to the WebSocket server:
+
+```javascript
+const socket = io('http://localhost:3000', {
+  auth: {
+    userId: 'current-user-id',
+  },
+});
+```
+
+### Message Events
+
+#### Emit: 'sendMessage'
+
+Send a new message:
+
+```javascript
+socket.emit('sendMessage', {
+  content: 'Hello!',
+  conversation_id: 'conversation-id',
+});
+```
+
+#### Listen: 'newMessage'
+
+Receive new messages:
+
+```javascript
+socket.on('newMessage', (message) => {
+  console.log('New message:', message);
+});
+```
+
+### Typing Indicators
+
+#### Emit: 'typing'
+
+Send typing status:
+
+```javascript
+socket.emit('typing', {
+  conversationId: 'conversation-id',
+  isTyping: true,
+});
+```
+
+#### Listen: 'userTyping'
+
+Receive typing status:
+
+```javascript
+socket.on('userTyping', ({ userId, conversationId, isTyping }) => {
+  console.log(`User ${userId} is ${isTyping ? 'typing' : 'not typing'}`);
+});
+```
+
+### User Status
+
+#### Listen: 'userStatus'
+
+Receive user status updates:
+
+```javascript
+socket.on('userStatus', ({ userId, status }) => {
+  console.log(`User ${userId} is ${status}`);
+});
+```
+
+### Message Status
+
+#### Listen: 'messageStatus'
+
+Receive message status updates:
+
+```javascript
+socket.on('messageStatus', ({ messageId, userId, status }) => {
+  console.log(`Message ${messageId} is ${status}`);
+});
+```
+
+### Conversation Room Management
+
+#### Emit: 'joinConversation'
+
+Join a conversation room:
+
+```javascript
+socket.emit('joinConversation', 'conversation-id');
+```
+
+#### Emit: 'leaveConversation'
+
+Leave a conversation room:
+
+```javascript
+socket.emit('leaveConversation', 'conversation-id');
+```
+
+## Database Schema
+
+The database schema includes the following tables:
+
+### users
+
+- user_id (UUID, PK)
+- username (VARCHAR, unique)
+- email (VARCHAR, unique)
+- password_hash (VARCHAR)
+- status (ENUM: 'online', 'offline')
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+
+### conversations
+
+- conversation_id (UUID, PK)
+- name (VARCHAR, nullable)
+- is_group (BOOLEAN)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+
+### conversation_participants
+
+- conversation_id (UUID, FK)
+- user_id (UUID, FK)
+- PRIMARY KEY (conversation_id, user_id)
+
+### messages
+
+- message_id (UUID, PK)
+- conversation_id (UUID, FK)
+- sender_id (UUID, FK)
+- content (TEXT)
+- status (ENUM: 'sent', 'delivered', 'read')
+- is_edited (BOOLEAN)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+- deleted_at (TIMESTAMP, nullable)
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ```
 

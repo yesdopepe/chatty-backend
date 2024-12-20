@@ -185,7 +185,7 @@ export class FriendshipsService {
 
     return this.userRepository.find({
       where: { user_id: In(suggestionIds) },
-      select: ['user_id', 'username', 'email', 'profile_picture', 'status'],
+      select: ['user_id', 'username', 'email', 'status'], // Removed 'profile_picture' as it is not assignable to type 'keyof User'
     });
   }
 }

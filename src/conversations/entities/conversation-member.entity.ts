@@ -16,7 +16,7 @@ export class ConversationMember {
   @PrimaryColumn('uuid')
   user_id: string;
 
-  @ManyToOne(() => Conversation, (conversation) => conversation.members)
+  @ManyToOne(() => Conversation, (conversation) => conversation.participants)
   @JoinColumn({ name: 'conversation_id' })
   conversation: Conversation;
 
