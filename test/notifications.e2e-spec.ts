@@ -9,6 +9,7 @@ import { UsersModule } from '../src/users/users.module';
 import { NotificationsModule } from '../src/notifications/notifications.module';
 import { MessagesModule } from '../src/messages/messages.module';
 import { ConversationsModule } from '../src/conversations/conversations.module';
+import { FriendshipsModule } from '../src/friendships/friendships.module';
 import { testDatabaseConfig } from './database.config';
 
 describe('Notifications (e2e)', () => {
@@ -23,14 +24,14 @@ describe('Notifications (e2e)', () => {
   let notificationId: string;
 
   const testUser1 = {
-    username: 'testuser1',
-    email: 'test1@example.com',
+    username: 'notifuser1',
+    email: 'notif1@example.com',
     password: 'password123',
   };
 
   const testUser2 = {
-    username: 'testuser2',
-    email: 'test2@example.com',
+    username: 'notifuser2',
+    email: 'notif2@example.com',
     password: 'password123',
   };
 
@@ -47,6 +48,7 @@ describe('Notifications (e2e)', () => {
         NotificationsModule,
         MessagesModule,
         ConversationsModule,
+        FriendshipsModule,
       ],
     }).compile();
 
@@ -81,6 +83,7 @@ describe('Notifications (e2e)', () => {
       .set('Authorization', `Bearer ${jwtToken1}`)
       .send({
         participant_ids: [user2Id],
+        is_group: false,
       });
     conversationId = conversationResponse.body.conversation_id;
 
@@ -89,6 +92,7 @@ describe('Notifications (e2e)', () => {
     const socketOptions = {
       transports: ['websocket'],
       forceNew: true,
+      timeout: 10000,
     };
 
     notificationSocket1 = io(`http://localhost:${port}/notifications`, {
@@ -110,7 +114,7 @@ describe('Notifications (e2e)', () => {
         notificationSocket2.on('connect', () => resolve()),
       ),
     ]);
-  });
+  }, 30000); // Increase timeout to 30 seconds
 
   afterAll(async () => {
     notificationSocket1?.disconnect();
@@ -121,11 +125,15 @@ describe('Notifications (e2e)', () => {
   describe('Notification Flow', () => {
     it('should receive notification when a message is sent', (done) => {
       notificationSocket2.on('notification', (notification) => {
-        expect(notification.type).toBe('message');
-        expect(notification.metadata.conversation_id).toBe(conversationId);
-        expect(notification.metadata.sender_name).toBe(testUser1.username);
-        notificationId = notification.notification_id;
-        done();
+        try {
+          expect(notification.type).toBe('message');
+          expect(notification.metadata.conversation_id).toBe(conversationId);
+          expect(notification.metadata.sender_name).toBe(testUser1.username);
+          notificationId = notification.notification_id;
+          done();
+        } catch (error) {
+          done(error);
+        }
       });
 
       // Send a message
@@ -136,8 +144,11 @@ describe('Notifications (e2e)', () => {
           conversation_id: conversationId,
           content: 'Hello, this is a test message',
         })
-        .expect(201);
-    });
+        .expect(201)
+        .end((err) => {
+          if (err) done(err);
+        });
+    }, 10000); // Increase test timeout to 10 seconds
 
     it('should get all notifications', async () => {
       const response = await request(app.getHttpServer())

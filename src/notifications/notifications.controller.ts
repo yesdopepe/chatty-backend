@@ -18,18 +18,18 @@ export class NotificationsController {
 
   @Get()
   async findAll(@Request() req) {
-    return this.notificationsService.findAllForUser(req.user.sub);
+    return this.notificationsService.findAllForUser(req.user.user_id);
   }
 
   @Get('unread')
   async findUnread(@Request() req) {
-    return this.notificationsService.findUnreadForUser(req.user.sub);
+    return this.notificationsService.findUnreadForUser(req.user.user_id);
   }
 
   @Post(':id/read')
   async markAsRead(@Param('id') id: string, @Request() req) {
     try {
-      return await this.notificationsService.markAsRead(id, req.user.sub);
+      return await this.notificationsService.markAsRead(id, req.user.user_id);
     } catch (error) {
       throw new NotFoundException(error.message);
     }
@@ -37,13 +37,13 @@ export class NotificationsController {
 
   @Post('read-all')
   async markAllAsRead(@Request() req) {
-    return this.notificationsService.markAllAsRead(req.user.sub);
+    return this.notificationsService.markAllAsRead(req.user.user_id);
   }
 
   @Delete(':id')
   async delete(@Param('id') id: string, @Request() req) {
     try {
-      await this.notificationsService.delete(id, req.user.sub);
+      await this.notificationsService.delete(id, req.user.user_id);
     } catch (error) {
       throw new NotFoundException(error.message);
     }

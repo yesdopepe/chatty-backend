@@ -6,12 +6,12 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtStrategy } from '../auth/strategies/jwt.strategy';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 @WebSocketGateway({
   cors: {
-    origin: '*', // In production, replace with your frontend URL
+    origin: '*',
   },
   namespace: '/notifications',
 })
@@ -21,7 +21,7 @@ export class NotificationsGateway
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly jwtStrategy: JwtStrategy) {}
+  constructor(private readonly jwtService: JwtService) {}
 
   async handleConnection(client: Socket) {
     try {
@@ -33,9 +33,9 @@ export class NotificationsGateway
       // Extract token from Bearer format if present
       const tokenString = token.startsWith('Bearer ') ? token.slice(7) : token;
 
-      // Use the JWT strategy to validate the token and get the user
-      const user = await this.jwtStrategy.validate({ sub: tokenString });
-      const userId = user.user_id;
+      // Verify and decode the token
+      const payload = await this.jwtService.verifyAsync(tokenString);
+      const userId = payload.sub;
 
       // Store user ID in socket data
       client.data.userId = userId;

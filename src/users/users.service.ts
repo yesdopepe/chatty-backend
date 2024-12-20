@@ -27,13 +27,7 @@ export class UsersService {
     }
 
     const [users, total] = await queryBuilder
-      .select([
-        'user.user_id',
-        'user.username',
-        'user.email',
-        'user.profile_picture',
-        'user.status',
-      ])
+      .select(['user.user_id', 'user.username', 'user.email', 'user.status'])
       .skip(skip)
       .take(limit)
       .getManyAndCount();
