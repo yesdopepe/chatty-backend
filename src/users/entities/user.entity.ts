@@ -4,12 +4,13 @@ import {
   CreateDateColumn,
   OneToMany,
   PrimaryGeneratedColumn,
+  ManyToMany,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { Friendship } from '../../friendships/entities/friendship.entity';
 import { Message } from '../../messages/entities/message.entity';
-import { ConversationMember } from '../../conversations/entities/conversation-member.entity';
 import { Notification } from '../../notifications/entities/notification.entity';
+import { Conversation } from '../../conversations/entities/conversation.entity';
 
 @Entity('users')
 export class User {
@@ -44,8 +45,8 @@ export class User {
   @OneToMany(() => Message, (message) => message.sender)
   messages: Message[];
 
-  @OneToMany(() => ConversationMember, (member) => member.user)
-  conversations: ConversationMember[];
+  @ManyToMany(() => Conversation, (conversation) => conversation.participants)
+  conversations: Conversation[];
 
   @OneToMany(() => Notification, (notification) => notification.user)
   notifications: Notification[];
