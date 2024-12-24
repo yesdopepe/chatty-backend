@@ -4,12 +4,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, FindOperator, FindOptionsWhere } from 'typeorm';
 import { Message, MessageStatus } from './entities/message.entity';
 import { User } from '../users/entities/user.entity';
 import { Conversation } from '../conversations/entities/conversation.entity';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/types/notifications.types';
 
 @Injectable()
 export class MessagesService {
@@ -75,11 +76,11 @@ export class MessagesService {
 
     await Promise.all(
       otherParticipants.map((participant) =>
-        this.notificationsService.createMessageNotification(
+        this.notificationsService.createAndSendNotification(
           participant.user_id,
-          sender.username,
-          messagePreview,
-          conversation_id,
+          NotificationType.MESSAGE,
+          `${sender.username}: ${messagePreview}`,
+          { conversation_id },
         ),
       ),
     );

@@ -9,15 +9,16 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @WebSocketGateway({
   cors: {
     origin: '*', // In production, replace with your frontend URL
   },
 })
+@UseGuards(JwtAuthGuard)
 export class MessagesGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
@@ -29,8 +30,9 @@ export class MessagesGateway
 
   constructor(private readonly messagesService: MessagesService) {}
 
+  
   async handleConnection(client: Socket) {
-    const userId = client.handshake.auth.userId;
+    const userId = client['user']?.sub;
     if (userId) {
       this.userSockets.set(userId, client.id);
       this.socketUsers.set(client.id, userId);
@@ -51,7 +53,6 @@ export class MessagesGateway
     }
   }
 
-  @UseGuards(JwtAuthGuard)
   @SubscribeMessage('sendMessage')
   async handleMessage(
     @ConnectedSocket() client: Socket,

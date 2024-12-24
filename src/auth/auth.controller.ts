@@ -6,6 +6,9 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  ConflictException,
+  UnauthorizedException,
+  NotFoundException
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, AuthResponse } from './dto/auth.dto';
@@ -16,21 +19,43 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @HttpCode(HttpStatus.CREATED)
   async register(@Body() registerDto: RegisterDto): Promise<AuthResponse> {
-    return this.authService.register(registerDto);
+    try {
+      return await this.authService.register(registerDto);
+    } catch (error) {
+      if (error instanceof ConflictException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new Error('Registration failed. Please try again later.');
+    }
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto): Promise<AuthResponse> {
-    return this.authService.login(loginDto);
+    try {
+      return await this.authService.login(loginDto);
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof ConflictException) {
+        throw error;
+      }
+      throw new Error('Login failed. Please try again later.');
+    }
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async logout(@Request() req) {
-    await this.authService.logout(req.user.user_id);
-    return { message: 'Successfully logged out' };
+    try {
+      await this.authService.logout(req.user.user_id);
+      return { message: 'Successfully logged out' };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ConflictException) {
+        throw error;
+      }
+      throw new Error('Logout failed. Please try again later.');
+    }
   }
 }
