@@ -19,6 +19,30 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
+  private async generateRefreshToken(): Promise<string> {
+    const salt = await bcrypt.genSalt();
+    return bcrypt.hash(new Date().getTime().toString(), salt);
+  }
+
+  private async generateTokenResponse(user: User): Promise<AuthResponse> {
+    const payload = { sub: user.user_id, username: user.username };
+    const access_token = await this.jwtService.signAsync(payload);
+    const refresh_token = await this.generateRefreshToken();
+
+    user.refresh_token = refresh_token;
+    await this.userRepository.save(user);
+
+    return {
+      access_token,
+      refresh_token,
+      user: {
+        user_id: user.user_id,
+        username: user.username,
+        email: user.email,
+      },
+    };
+  }
+
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
     const { username, email, password } = registerDto;
 
@@ -44,27 +68,15 @@ export class AuthService {
     });
 
     await this.userRepository.save(user);
-
-    // Generate JWT
-    const payload = { sub: user.user_id, username: user.username };
-    const access_token = await this.jwtService.signAsync(payload);
-
-    return {
-      access_token,
-      user: {
-        user_id: user.user_id,
-        username: user.username,
-        email: user.email,
-      },
-    };
+    return this.generateTokenResponse(user);
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
-    const { username, password } = loginDto;
+    const { email, password } = loginDto;
 
     // Find user
     const user = await this.userRepository.findOne({
-      where: { username },
+      where: { email },
     });
 
     if (!user) {
@@ -80,20 +92,28 @@ export class AuthService {
 
     // Update user status
     user.status = 'online';
+    return this.generateTokenResponse(user);
+  }
+
+  async refresh(refreshToken: string): Promise<AuthResponse> {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { refresh_token: refreshToken },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // Invalidate the old refresh token immediately
+    user.refresh_token = null;
     await this.userRepository.save(user);
 
-    // Generate JWT
-    const payload = { sub: user.user_id, username: user.username };
-    const access_token = await this.jwtService.signAsync(payload);
-
-    return {
-      access_token,
-      user: {
-        user_id: user.user_id,
-        username: user.username,
-        email: user.email,
-      },
-    };
+    // Generate new tokens
+    return this.generateTokenResponse(user);
   }
 
   async logout(userId: string): Promise<void> {
@@ -106,6 +126,7 @@ export class AuthService {
     }
 
     user.status = 'offline';
+    user.refresh_token = null;
     await this.userRepository.save(user);
   }
 }

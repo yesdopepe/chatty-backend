@@ -3,7 +3,7 @@ import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 export class LoginDto {
   @IsString()
   @IsNotEmpty()
-  username: string;
+  email: string;
 
   @IsString()
   @IsNotEmpty()
@@ -28,9 +28,16 @@ export class RegisterDto {
 
 export class AuthResponse {
   access_token: string;
+  refresh_token: string;
   user: {
     user_id: string;
     username: string;
     email: string;
   };
+}
+
+export class RefreshTokenDto {
+  @IsString()
+  @IsNotEmpty()
+  refresh_token: string;
 }

@@ -84,22 +84,26 @@ describe('AuthController (e2e)', () => {
 
   describe('/auth/login (POST)', () => {
     const loginCredentials = {
-      username: 'testuser',
+      email: 'test@example.com',
       password: 'password123',
     };
 
-    it('should login successfully', async () => {
+    let refreshToken: string;
+
+    it('should login successfully and return refresh token', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send(loginCredentials)
         .expect(200);
 
       expect(response.body.access_token).toBeDefined();
+      expect(response.body.refresh_token).toBeDefined();
       expect(response.body.user).toBeDefined();
-      expect(response.body.user.username).toBe(loginCredentials.username);
+      expect(response.body.user.email).toBe(loginCredentials.email);
 
-      // Save the token for logout test
+      // Save tokens for later tests
       jwtToken = response.body.access_token;
+      refreshToken = response.body.refresh_token;
     });
 
     it('should fail to login with wrong password', async () => {
@@ -112,13 +116,55 @@ describe('AuthController (e2e)', () => {
         .expect(401);
     });
 
-    it('should fail to login with non-existent username', async () => {
+    it('should fail to login with non-existent email', async () => {
       await request(app.getHttpServer())
         .post('/auth/login')
         .send({
-          username: 'nonexistent',
+          email: 'nonexistent@example.com',
           password: 'password123',
         })
+        .expect(401);
+    });
+  });
+
+  describe('/auth/refresh (POST)', () => {
+    let oldRefreshToken: string;
+
+    beforeAll(async () => {
+      // Login to get initial tokens
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'test@example.com',
+          password: 'password123',
+        });
+      oldRefreshToken = response.body.refresh_token;
+    });
+
+    it('should refresh tokens successfully', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: oldRefreshToken })
+        .expect(200);
+
+      expect(response.body.access_token).toBeDefined();
+      expect(response.body.refresh_token).toBeDefined();
+      expect(response.body.refresh_token).not.toBe(oldRefreshToken);
+      expect(response.body.user).toBeDefined();
+    });
+
+    it('should fail with invalid refresh token', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: 'invalid-refresh-token' })
+        .expect(401);
+    });
+
+    it('should fail with already used refresh token', async () => {
+      // Try to use the old refresh token again
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: oldRefreshToken })
         .expect(401);
     });
   });

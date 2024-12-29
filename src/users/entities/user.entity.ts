@@ -33,6 +33,9 @@ export class User {
   @Column({ type: 'varchar', length: 20, default: 'offline' })
   status: string;
 
+  @Column({ nullable: true })
+  refresh_token: string;
+
   @CreateDateColumn()
   created_at: Date;
 
