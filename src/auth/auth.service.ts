@@ -1,132 +1,45 @@
-import {
-  Injectable,
-  ConflictException,
-  UnauthorizedException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-import { User } from '../users/entities/user.entity';
-import { LoginDto, RegisterDto, AuthResponse } from './dto/auth.dto';
+import { CreateUserDto } from 'src/user/dto/create-user.dto';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private readonly userService: UserService, private readonly jwtService: JwtService) {}
 
-  private async generateRefreshToken(): Promise<string> {
-    const salt = await bcrypt.genSalt();
-    return bcrypt.hash(new Date().getTime().toString(), salt);
+  async validateUser(email: string, password: string): Promise<any> {
+    const user = await this.userService.findByEmail(email);
+    if (!user) throw new NotFoundException();
+
+    const same = await bcrypt.compare(password, user.password);
+    if (same) {
+      const { password, ...result } = user;
+      return result;
+    }
+    return null;
   }
 
-  private async generateTokenResponse(user: User): Promise<AuthResponse> {
-    const payload = { sub: user.user_id, username: user.username };
-    const access_token = await this.jwtService.signAsync(payload);
-    const refresh_token = await this.generateRefreshToken();
-
-    user.refresh_token = refresh_token;
-    await this.userRepository.save(user);
-
+  async login({ dataValues }) {
+    const payload = {
+      id: dataValues.id,
+      username: dataValues.username,
+      image: dataValues.image
+    };
     return {
-      access_token,
-      refresh_token,
-      user: {
-        user_id: user.user_id,
-        username: user.username,
-        email: user.email,
-      },
+      statusCode: '200',
+      access_token: this.jwtService.sign(payload)
     };
   }
 
-  async register(registerDto: RegisterDto): Promise<AuthResponse> {
-    const { username, email, password } = registerDto;
+  async register(userDoc: CreateUserDto): Promise<any> {
+    const user = await this.userService.findByEmail(userDoc.email);
+    if (user) throw new ConflictException('User already exists.');
 
-    // Check if user exists
-    const existingUser = await this.userRepository.findOne({
-      where: [{ username }, { email }],
-    });
-
-    if (existingUser) {
-      throw new ConflictException('Username or email already exists');
-    }
-
-    // Hash password
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create new user
-    const user = this.userRepository.create({
-      username,
-      email,
-      password_hash: hashedPassword,
-      status: 'offline',
-    });
-
-    await this.userRepository.save(user);
-    return this.generateTokenResponse(user);
-  }
-
-  async login(loginDto: LoginDto): Promise<AuthResponse> {
-    const { email, password } = loginDto;
-
-    // Find user
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Update user status
-    user.status = 'online';
-    return this.generateTokenResponse(user);
-  }
-
-  async refresh(refreshToken: string): Promise<AuthResponse> {
-    if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token is required');
-    }
-
-    const user = await this.userRepository.findOne({
-      where: { refresh_token: refreshToken },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    // Invalidate the old refresh token immediately
-    user.refresh_token = null;
-    await this.userRepository.save(user);
-
-    // Generate new tokens
-    return this.generateTokenResponse(user);
-  }
-
-  async logout(userId: string): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { user_id: userId },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    user.status = 'offline';
-    user.refresh_token = null;
-    await this.userRepository.save(user);
+    await this.userService.createUser(userDoc);
+    return {
+      statusCode: '201',
+      message: 'User created successfully.'
+    };
   }
 }
