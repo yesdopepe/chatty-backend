@@ -1,4 +1,12 @@
-import { Column, DataType, Default, Model, PrimaryKey, Table, HasMany } from 'sequelize-typescript';
+import {
+  Column,
+  DataType,
+  Default,
+  Model,
+  PrimaryKey,
+  Table,
+  HasMany,
+} from 'sequelize-typescript';
 import { Message } from 'src/message/message.entity';
 import { ChannelParticipant } from './channel-participant.entity';
 import { ChannelAdmin } from './channel-admin.entity';
@@ -18,6 +26,10 @@ export class Channel extends Model {
 
   @Column(DataType.STRING)
   public image: string;
+
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  public isGroup: boolean;
 
   @HasMany(() => ChannelParticipant)
   public participants: ChannelParticipant[];

@@ -14,12 +14,17 @@ export class UserService {
   }
 
   async findById(id: string): Promise<User | undefined> {
-    const user = await User.findByPk(id, { attributes: { exclude: ['password'] } });
+    const user = await User.findByPk(id, {
+      attributes: { exclude: ['password', 'email'] },
+    });
     return user;
   }
 
   async findBySearch(search: string): Promise<any> {
-    const users = await User.findAll({ where: { username: { [Op.iLike]: `%${search}%` } } });
+    const users = await User.findAll({
+      where: { username: { [Op.iLike]: `%${search}%` } },
+      attributes: { exclude: ['password', 'email'] },
+    });
     return users;
   }
 
@@ -27,7 +32,7 @@ export class UserService {
     const user = await User.create({
       email,
       username,
-      password
+      password,
     });
     return user;
   }
@@ -39,7 +44,7 @@ export class UserService {
     } catch {
       return {
         statusCode: '409',
-        message: 'This username is already in use.'
+        message: 'This username is already in use.',
       };
     }
   }
@@ -49,23 +54,25 @@ export class UserService {
       const friendships = await Friend.findAll({
         where: {
           userId: id,
-          accepted: true
+          accepted: true,
         },
-        include: [{
-          model: User,
-          as: 'friend',
-          attributes: { exclude: ['password'] }
-        }]
+        include: [
+          {
+            model: User,
+            as: 'friend',
+            attributes: { exclude: ['password'] },
+          },
+        ],
       });
 
       return {
         statusCode: '200',
-        friends: friendships.map(f => f.friend)
+        friends: friendships.map((f) => f.friend),
       };
     } catch (error) {
       return {
         statusCode: '404',
-        message: 'Friends not found.'
+        message: 'Friends not found.',
       };
     }
   }
@@ -75,22 +82,23 @@ export class UserService {
     const secondUser = await this.findById(otherId);
 
     // Check if user exists
-    if (!firstUser || !secondUser) throw new NotFoundException('User not found.');
+    if (!firstUser || !secondUser)
+      throw new NotFoundException('User not found.');
 
     // Check if user is blocked
     const isBlocked = await BlockedUser.findOne({
       where: {
         [Op.or]: [
           { userId: id, blockedUserId: otherId },
-          { userId: otherId, blockedUserId: id }
-        ]
-      }
+          { userId: otherId, blockedUserId: id },
+        ],
+      },
     });
 
     if (isBlocked) {
       return {
         status: '406',
-        message: 'You cannot do this. You are blocked.'
+        message: 'You cannot do this. You are blocked.',
       };
     }
 
@@ -99,16 +107,16 @@ export class UserService {
       where: {
         [Op.or]: [
           { userId: id, friendId: otherId },
-          { userId: otherId, friendId: id }
+          { userId: otherId, friendId: id },
         ],
-        accepted: true
-      }
+        accepted: true,
+      },
     });
 
     if (status && existingFriendship) {
       return {
         statusCode: '409',
-        message: 'You are already friends.'
+        message: 'You are already friends.',
       };
     }
 
@@ -120,16 +128,16 @@ export class UserService {
           where: {
             userId: otherId,
             friendId: id,
-            accepted: false
-          }
-        }
+            accepted: false,
+          },
+        },
       );
 
       // Create reciprocal friendship
       await Friend.create({
         userId: id,
         friendId: otherId,
-        accepted: true
+        accepted: true,
       });
     } else {
       // Remove friendship
@@ -137,15 +145,15 @@ export class UserService {
         where: {
           [Op.or]: [
             { userId: id, friendId: otherId },
-            { userId: otherId, friendId: id }
-          ]
-        }
+            { userId: otherId, friendId: id },
+          ],
+        },
       });
     }
 
     return {
       statusCode: '200',
-      message: 'User updated successfully.'
+      message: 'User updated successfully.',
     };
   }
 
@@ -154,23 +162,25 @@ export class UserService {
       const requests = await Friend.findAll({
         where: {
           friendId: id,
-          accepted: false
+          accepted: false,
         },
-        include: [{
-          model: User,
-          as: 'user',
-          attributes: { exclude: ['password'] }
-        }]
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: { exclude: ['password'] },
+          },
+        ],
       });
 
       return {
         statusCode: '200',
-        requests: requests.map(r => r.user)
+        requests: requests.map((r) => r.user),
       };
     } catch {
       return {
         statusCode: '404',
-        message: 'Requests not found.'
+        message: 'Requests not found.',
       };
     }
   }
@@ -180,22 +190,23 @@ export class UserService {
     const secondUser = await this.findById(otherId);
 
     // Check if user exists
-    if (!firstUser || !secondUser) throw new NotFoundException('User not found.');
+    if (!firstUser || !secondUser)
+      throw new NotFoundException('User not found.');
 
     // Check if user is blocked
     const isBlocked = await BlockedUser.findOne({
       where: {
         [Op.or]: [
           { userId: id, blockedUserId: otherId },
-          { userId: otherId, blockedUserId: id }
-        ]
-      }
+          { userId: otherId, blockedUserId: id },
+        ],
+      },
     });
 
     if (isBlocked) {
       return {
         status: '406',
-        message: 'You cannot do this. You are blocked.'
+        message: 'You cannot do this. You are blocked.',
       };
     }
 
@@ -204,16 +215,16 @@ export class UserService {
       where: {
         [Op.or]: [
           { userId: id, friendId: otherId },
-          { userId: otherId, friendId: id }
+          { userId: otherId, friendId: id },
         ],
-        accepted: true
-      }
+        accepted: true,
+      },
     });
 
     if (existingFriendship) {
       return {
         statusCode: '406',
-        message: 'You are already friends.'
+        message: 'You are already friends.',
       };
     }
 
@@ -222,14 +233,14 @@ export class UserService {
       where: {
         userId: id,
         friendId: otherId,
-        accepted: false
-      }
+        accepted: false,
+      },
     });
 
     if (status && existingRequest) {
       return {
         statusCode: '409',
-        message: 'You already sent a request to this user.'
+        message: 'You already sent a request to this user.',
       };
     }
 
@@ -237,21 +248,21 @@ export class UserService {
       await Friend.create({
         userId: id,
         friendId: otherId,
-        accepted: false
+        accepted: false,
       });
     } else {
       await Friend.destroy({
         where: {
           userId: id,
           friendId: otherId,
-          accepted: false
-        }
+          accepted: false,
+        },
       });
     }
 
     return {
       statusCode: '200',
-      message: 'User updated successfully.'
+      message: 'User updated successfully.',
     };
   }
 
@@ -259,21 +270,23 @@ export class UserService {
     try {
       const blocked = await BlockedUser.findAll({
         where: { userId: id },
-        include: [{
-          model: User,
-          as: 'blockedUser',
-          attributes: { exclude: ['password'] }
-        }]
+        include: [
+          {
+            model: User,
+            as: 'blockedUser',
+            attributes: { exclude: ['password', 'email'] },
+          },
+        ],
       });
 
       return {
         statusCode: '200',
-        blocked: blocked.map(b => b.blockedUser)
+        blocked: blocked.map((b) => b.blockedUser),
       };
     } catch {
       return {
         statusCode: '404',
-        message: 'Blocked users not found.'
+        message: 'Blocked users not found.',
       };
     }
   }
@@ -283,20 +296,21 @@ export class UserService {
     const secondUser = await this.findById(otherId);
 
     // Check if user exists
-    if (!firstUser || !secondUser) throw new NotFoundException('User not found.');
+    if (!firstUser || !secondUser)
+      throw new NotFoundException('User not found.');
 
     // Check if already blocked
     const existingBlock = await BlockedUser.findOne({
       where: {
         userId: id,
-        blockedUserId: otherId
-      }
+        blockedUserId: otherId,
+      },
     });
 
     if (status && existingBlock) {
       return {
         statusCode: '409',
-        message: 'User is already blocked.'
+        message: 'User is already blocked.',
       };
     }
 
@@ -306,29 +320,29 @@ export class UserService {
         where: {
           [Op.or]: [
             { userId: id, friendId: otherId },
-            { userId: otherId, friendId: id }
-          ]
-        }
+            { userId: otherId, friendId: id },
+          ],
+        },
       });
 
       // Block user
       await BlockedUser.create({
         userId: id,
-        blockedUserId: otherId
+        blockedUserId: otherId,
       });
     } else {
       // Unblock user
       await BlockedUser.destroy({
         where: {
           userId: id,
-          blockedUserId: otherId
-        }
+          blockedUserId: otherId,
+        },
       });
     }
 
     return {
       statusCode: '200',
-      message: 'User updated successfully.'
+      message: 'User updated successfully.',
     };
   }
 }

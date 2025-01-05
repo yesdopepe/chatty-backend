@@ -14,34 +14,42 @@ export class ChannelService {
         include: [
           {
             model: ChannelParticipant,
-            include: [{
-              model: User,
-              attributes: { exclude: ['password'] }
-            }]
+            include: [
+              {
+                model: User,
+                attributes: { exclude: ['password', 'email'] },
+              },
+            ],
           },
           {
             model: ChannelAdmin,
-            include: [{
-              model: User,
-              attributes: { exclude: ['password'] }
-            }]
-          }
-        ]
+            include: [
+              {
+                model: User,
+                attributes: { exclude: ['password', 'email'] },
+              },
+            ],
+          },
+        ],
       });
 
       if (!channel) {
         throw new Error('Channel not found');
       }
 
+      const participants = channel.participants.map((p) => p.user);
+      const admins = channel.admins.map((a) => a.user);
+
       return {
         ...channel.toJSON(),
-        participants: channel.participants.map(p => p.user),
-        admins: channel.admins.map(a => a.user)
+        participants,
+        admins,
+        image: channel.isGroup ? channel.image : participants[1]?.image,
       };
     } catch {
       return {
         statusCode: '404',
-        message: 'Channel not found.'
+        message: 'Channel not found.',
       };
     }
   }
@@ -50,71 +58,129 @@ export class ChannelService {
     try {
       const channelParticipations = await ChannelParticipant.findAll({
         where: { userId },
-        include: [{
-          model: Channel,
-          attributes: { exclude: ['messages'] },
-          order: [['updatedAt', 'DESC']]
-        }]
+        include: [
+          {
+            model: Channel,
+            include: [
+              {
+                model: ChannelParticipant,
+                include: [
+                  {
+                    model: User,
+                    attributes: { exclude: ['password', 'email'] },
+                  },
+                ],
+              },
+              {
+                model: ChannelAdmin,
+                include: [
+                  {
+                    model: User,
+                    attributes: { exclude: ['password', 'email'] },
+                  },
+                ],
+              },
+            ],
+            order: [['updatedAt', 'DESC']],
+          },
+        ],
       });
 
-      const channels = channelParticipations.map(cp => cp.channel);
-      const lastMessages: any[] = [];
+      const formattedChannels = channelParticipations.map((cp) => {
+        const channel = cp.channel;
+        const participants = channel.participants.map((p) => p.user);
+        const admins = channel.admins.map((a) => a.user);
 
-      for (const channel of channels) {
-        const lastMessage = await Message.findOne({
-          where: { channelId: channel.id },
-          order: [['createdAt', 'DESC']]
-        });
-        lastMessages.push(lastMessage);
-      }
+        // For direct messages, find the other user (not the current user)
+        const otherUser = channel.isGroup
+          ? null
+          : participants.find((p) => p.id !== userId);
+
+        return {
+          ...channel.toJSON(),
+          participants,
+          admins,
+          image: channel.isGroup ? channel.image : otherUser?.image,
+          name: channel.isGroup ? channel.name : otherUser?.username,
+        };
+      });
+
+      const lastMessages = await Promise.all(
+        formattedChannels.map((channel) =>
+          Message.findOne({
+            where: { channelId: channel.id },
+            order: [['createdAt', 'DESC']],
+          }),
+        ),
+      );
 
       return {
+        channels: formattedChannels,
         lastMessages,
-        channels
       };
-    } catch {
+    } catch (error) {
       return {
         statusCode: '404',
-        message: 'User or channel not found.'
+        message: 'User or channel not found.',
       };
     }
   }
 
-  async createChannel({participants, admins, image, name, description}: ChannelDto) {
+  async createChannel({
+    participants,
+    admins,
+    image,
+    name,
+    description,
+    isGroup,
+  }: ChannelDto) {
     try {
+      // Validate participant count based on isGroup
+      if (isGroup && participants.length < 3) {
+        throw new Error('Group channels must have at least 3 participants');
+      }
+      if (!isGroup && participants.length !== 2) {
+        throw new Error('Direct channels must have exactly 2 participants');
+      }
+
       const channel = await Channel.create({
         image,
         name,
-        description
+        description,
+        isGroup,
       });
 
       // Add participants
-      await Promise.all(participants.map(userId =>
-        ChannelParticipant.create({
-          channelId: channel.id,
-          userId
-        })
-      ));
+      await Promise.all(
+        participants.map((userId) =>
+          ChannelParticipant.create({
+            channelId: channel.id,
+            userId,
+          }),
+        ),
+      );
 
       // Add admins
       if (admins && admins.length > 0) {
-        await Promise.all(admins.map(userId =>
-          ChannelAdmin.create({
-            channelId: channel.id,
-            userId
-          })
-        ));
+        await Promise.all(
+          admins.map((userId) =>
+            ChannelAdmin.create({
+              channelId: channel.id,
+              userId,
+            }),
+          ),
+        );
       }
 
       return {
         statusCode: '201',
         message: 'Channel created successfully.',
-        channel
+        channel,
       };
     } catch (error) {
       return {
         status: '400',
-        message: error
+        message: error,
       };
     }
   }
@@ -130,12 +196,14 @@ export class ChannelService {
         await ChannelParticipant.destroy({ where: { channelId: id } });
 
         // Add new participants
-        await Promise.all(participants.map(userId =>
-          ChannelParticipant.create({
-            channelId: id,
-            userId
-          })
-        ));
+        await Promise.all(
+          participants.map((userId) =>
+            ChannelParticipant.create({
+              channelId: id,
+              userId,
+            }),
+          ),
+        );
       }
 
       if (admins) {
@@ -143,22 +211,24 @@ export class ChannelService {
         await ChannelAdmin.destroy({ where: { channelId: id } });
 
         // Add new admins
-        await Promise.all(admins.map(userId =>
-          ChannelAdmin.create({
-            channelId: id,
-            userId
-          })
-        ));
+        await Promise.all(
+          admins.map((userId) =>
+            ChannelAdmin.create({
+              channelId: id,
+              userId,
+            }),
+          ),
+        );
       }
 
       return {
         statusCode: '200',
-        message: 'Channel updated successfully.'
+        message: 'Channel updated successfully.',
       };
     } catch {
       return {
         statusCode: '404',
-        message: 'Channel not found.'
+        message: 'Channel not found.',
       };
     }
   }
@@ -169,18 +239,18 @@ export class ChannelService {
       await ChannelParticipant.destroy({ where: { channelId: id } });
       await ChannelAdmin.destroy({ where: { channelId: id } });
       await Message.destroy({ where: { channelId: id } });
-      
+
       // Delete the channel
       await Channel.destroy({ where: { id } });
 
       return {
         statusCode: '200',
-        message: 'Channel deleted successfully.'
+        message: 'Channel deleted successfully.',
       };
     } catch {
       return {
         statusCode: '404',
-        message: 'Channel not found.'
+        message: 'Channel not found.',
       };
     }
   }
