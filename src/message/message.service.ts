@@ -14,7 +14,7 @@ export class MessageService {
     } catch (error) {
       return {
         statusCode: '404',
-        message: 'Message not found.'
+        message: 'Message not found.',
       };
     }
   }
@@ -24,13 +24,18 @@ export class MessageService {
       const messages = await Message.findAll({
         where: { channelId: id },
         order: [['createdAt', 'ASC']],
-        include: User
+        include: [
+          {
+            model: User,
+            attributes: ['username'],
+          },
+        ],
       });
       return messages;
     } catch (error) {
       return {
         statusCode: '404',
-        message: 'Message not found.'
+        message: 'Message not found.',
       };
     }
   }
@@ -39,17 +44,23 @@ export class MessageService {
     try {
       const message = await Message.create({ text, images, channelId, userId });
       await Channel.update(
-        { messages: sequelize.fn('array_append', sequelize.col('messages'), message.id) },
-        { where: { id: message.channelId } }
+        {
+          messages: sequelize.fn(
+            'array_append',
+            sequelize.col('messages'),
+            message.id,
+          ),
+        },
+        { where: { id: message.channelId } },
       );
       return {
         statusCode: '201',
-        message: 'Message created successfully.'
+        message: 'Message created successfully.',
       };
     } catch (error) {
       return {
         statusCode: 400,
-        message: error
+        message: error,
       };
     }
   }
@@ -59,12 +70,12 @@ export class MessageService {
       await Message.update(message, { where: { id } });
       return {
         statusCode: '200',
-        message: 'Message updated successfully.'
+        message: 'Message updated successfully.',
       };
     } catch {
       return {
         statusCode: '404',
-        message: 'Message not found.'
+        message: 'Message not found.',
       };
     }
   }
@@ -74,12 +85,12 @@ export class MessageService {
       await Message.destroy({ where: { id } });
       return {
         statusCode: '200',
-        message: 'Message deleted successfully.'
+        message: 'Message deleted successfully.',
       };
     } catch {
       return {
         statusCode: '404',
-        message: 'Message not found.'
+        message: 'Message not found.',
       };
     }
   }

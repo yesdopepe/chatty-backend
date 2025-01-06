@@ -5,6 +5,7 @@ import { Channel } from './channel.entity';
 import { ChannelDto } from './dto/create-channel-dto';
 import { ChannelParticipant } from './channel-participant.entity';
 import { ChannelAdmin } from './channel-admin.entity';
+import { BlockedUser } from 'src/user/blocked-user.entity';
 
 @Injectable()
 export class ChannelService {
@@ -126,6 +127,30 @@ export class ChannelService {
     }
   }
 
+  private async findExistingDMChannel(user1Id: string, user2Id: string) {
+    const channels = await Channel.findAll({
+      where: { isGroup: false },
+      include: [
+        {
+          model: ChannelParticipant,
+          include: [
+            {
+              model: User,
+              attributes: { exclude: ['password', 'email'] },
+            },
+          ],
+        },
+      ],
+    });
+
+    return channels.find((channel) => {
+      const participantIds = channel.participants.map((p) => p.user.id);
+      return (
+        participantIds.includes(user1Id) && participantIds.includes(user2Id)
+      );
+    });
+  }
+
   async createChannel({
     participants,
     admins,
@@ -141,6 +166,60 @@ export class ChannelService {
       }
       if (!isGroup && participants.length !== 2) {
         throw new Error('Direct channels must have exactly 2 participants');
+      }
+
+      // Check for blocks in DM channels
+      if (!isGroup) {
+        const [user1Id, user2Id] = participants;
+        const block = await BlockedUser.findOne({
+          where: {
+            $or: [
+              { userId: user1Id, blockedUserId: user2Id },
+              { userId: user2Id, blockedUserId: user1Id },
+            ],
+          },
+        });
+
+        if (block) {
+          throw new Error(
+            'Cannot create channel: one of the users has blocked the other',
+          );
+        }
+      }
+
+      // Check for blocks in group channels between participants and the creator
+      if (isGroup && admins?.length > 0) {
+        const creatorId = admins[0]; // First admin is considered the creator
+        const blocks = await BlockedUser.findOne({
+          where: {
+            $or: [
+              { userId: creatorId, blockedUserId: { $in: participants } },
+              { userId: { $in: participants }, blockedUserId: creatorId },
+            ],
+          },
+        });
+
+        if (blocks) {
+          throw new Error(
+            'Cannot create group: there is a block between the creator and a participant',
+          );
+        }
+      }
+
+      // Check for existing DM channel if this is not a group
+      if (!isGroup) {
+        const existingChannel = await this.findExistingDMChannel(
+          participants[0],
+          participants[1],
+        );
+        if (existingChannel) {
+          return {
+            statusCode: '400',
+            message:
+              'Direct message channel already exists between these users',
+            channel: existingChannel,
+          };
+        }
       }
 
       const channel = await Channel.create({
@@ -180,7 +259,7 @@ export class ChannelService {
     } catch (error) {
       return {
         status: '400',
-        message: error,
+        message: error.message || error,
       };
     }
   }
