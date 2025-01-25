@@ -6,6 +6,7 @@ import { ChannelDto } from './dto/create-channel-dto';
 import { ChannelParticipant } from './channel-participant.entity';
 import { ChannelAdmin } from './channel-admin.entity';
 import { BlockedUser } from 'src/user/blocked-user.entity';
+import { Op } from 'sequelize'; // Add this import
 
 @Injectable()
 export class ChannelService {
@@ -81,10 +82,15 @@ export class ChannelService {
                   },
                 ],
               },
+              {
+                model: Message,
+                limit: 1,
+                order: [['createdAt', 'DESC']],
+              },
             ],
-            order: [['updatedAt', 'DESC']],
           },
         ],
+        order: [['updatedAt', 'DESC']],
       });
 
       const formattedChannels = channelParticipations.map((cp) => {
@@ -92,17 +98,23 @@ export class ChannelService {
         const participants = channel.participants.map((p) => p.user);
         const admins = channel.admins.map((a) => a.user);
 
-        // For direct messages, find the other user (not the current user)
-        const otherUser = channel.isGroup
-          ? null
-          : participants.find((p) => p.id !== userId);
+        let channelName = channel.name;
+        let channelImage = channel.image;
+
+        if (!channel.isGroup) {
+          const otherUser = participants.find((p) => p.id !== userId);
+          if (otherUser) {
+            channelName = otherUser.username;
+            channelImage = otherUser.image;
+          }
+        }
 
         return {
           ...channel.toJSON(),
           participants,
           admins,
-          image: channel.isGroup ? channel.image : otherUser?.image,
-          name: channel.isGroup ? channel.name : otherUser?.username,
+          image: channelImage,
+          name: channelName,
         };
       });
 
@@ -120,6 +132,7 @@ export class ChannelService {
         lastMessages,
       };
     } catch (error) {
+      console.error('Error in getChannelsByUser:', error);
       return {
         statusCode: '404',
         message: 'User or channel not found.',
@@ -173,7 +186,7 @@ export class ChannelService {
         const [user1Id, user2Id] = participants;
         const block = await BlockedUser.findOne({
           where: {
-            $or: [
+            [Op.or]: [
               { userId: user1Id, blockedUserId: user2Id },
               { userId: user2Id, blockedUserId: user1Id },
             ],
@@ -192,9 +205,15 @@ export class ChannelService {
         const creatorId = admins[0]; // First admin is considered the creator
         const blocks = await BlockedUser.findOne({
           where: {
-            $or: [
-              { userId: creatorId, blockedUserId: { $in: participants } },
-              { userId: { $in: participants }, blockedUserId: creatorId },
+            [Op.or]: [
+              {
+                userId: creatorId,
+                blockedUserId: { [Op.in]: participants },
+              },
+              {
+                userId: { [Op.in]: participants },
+                blockedUserId: creatorId,
+              },
             ],
           },
         });
